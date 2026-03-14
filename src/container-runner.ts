@@ -4,6 +4,7 @@
  */
 import { ChildProcess, exec, spawn } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 import {
@@ -75,6 +76,18 @@ function buildVolumeMounts(
       containerPath: '/workspace/project',
       readonly: true,
     });
+
+    // On Linux/Docker, shadow .env from the host side — Docker supports file mounts
+    // unlike Apple Container (VirtioFS). This avoids needing SYS_ADMIN inside the container.
+    if (os.platform() === 'linux') {
+      const emptyEnvPath = path.join(DATA_DIR, 'empty-env');
+      fs.writeFileSync(emptyEnvPath, '');
+      mounts.push({
+        hostPath: emptyEnvPath,
+        containerPath: '/workspace/project/.env',
+        readonly: true,
+      });
+    }
 
     // .env shadowing is handled inside the container entrypoint via `mount --bind`
     // (Apple Container does not support file mounts from the host side).
